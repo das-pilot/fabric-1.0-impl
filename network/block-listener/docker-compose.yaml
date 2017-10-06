@@ -1,0 +1,11 @@
+version: '2'
+
+services:
+  tools:
+    container_name: listener-build
+    image: hyperledger/fabric-tools
+    volumes:
+       - ./listener:/opt/listener
+       - ./fabric:/opt/gopath/src/github.com/hyperledger/fabric
+    working_dir: /opt/listener
+    command: go build
