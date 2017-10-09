@@ -10,7 +10,7 @@ echo
 echo "Build your first network (BYFN) end-to-end test"
 echo
 CHANNEL_NAME="$1"
-: ${CHANNEL_NAME:="voting"}
+: ${CHANNEL_NAME:="daschannel"}
 : ${TIMEOUT:="60"}
 COUNTER=1
 MAX_RETRY=5
@@ -116,11 +116,11 @@ joinChannel () {
 installChaincode () {
 	PEER=$1
 	setGlobals $PEER
-	peer chaincode install -n wallet -v 1.0 -l java  -p /opt/chaincodes/java/wallet  >&log.txt
+	peer chaincode install -n wallet -v 1.0 -p github.com/hyperledger/fabric/chaincodes/go/wallet >&log.txt
 	res=$?
 	cat log.txt
-        verifyResult $res "Chaincode installation on remote peer PEER $PEER has Failed"
-	echo "===================== Chaincode is installed on remote peer PEER $PEER ===================== "
+        verifyResult $res "Chaincode installation on remote peer PEER$PEER has Failed"
+	echo "===================== Chaincode is installed on remote peer PEER$PEER ===================== "
 	echo
 }
 
@@ -130,7 +130,7 @@ instantiateChaincode () {
 	# while 'peer chaincode' command can get the orderer endpoint from the peer (if join was successful),
 	# lets supply it directly as we know it using the "-o" option
 	if [ -z "$CORE_PEER_TLS_ENABLED" -o "$CORE_PEER_TLS_ENABLED" = "false" ]; then
-	    peer chaincode instantiate -o orderer.das-pilot.com:7050 -C voting  -n wallet -v 1.0 -c '{"Args":["init", "a","b","10"]}' -P "or('Org1MSP.member','Org2MSP.member')" >&log.txt
+	    peer chaincode instantiate -o orderer.das-pilot.com:7050 -C $CHANNEL_NAME  -n wallet -v 1.0 -c '{"Args":["init", "a","b","10"]}' -P "or('Org1MSP.member','Org2MSP.member')" >&log.txt
 	else
 		peer chaincode instantiate -o orderer.das-pilot.com:7050 --tls $CORE_PEER_TLS_ENABLED --cafile $ORDERER_CA -C $CHANNEL_NAME -n wallet -v 1.0 -c '{"Args":["init", "a","b","10"]}' -P "or('Org1MSP.member','Org2MSP.member')" >&log.txt
 	fi
@@ -209,6 +209,8 @@ installChaincode 2
 #Instantiate chaincode on Peer2/Org2
 echo "Instantiating chaincode on org1/peer0..."
 instantiateChaincode 0
+echo "Invoke chaincode on org1/peer0..."
+chaincodeInvoke 0
 echo "Hit chaincode on org2/peer0..."
 chaincodeQuery 2
 

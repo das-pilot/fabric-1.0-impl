@@ -27,4 +27,4 @@ services:
     command: peer node start
     volumes:
       - ./../block-listener/listener:/opt/gopath/src/github.com/hyperledger/fabric/block-listener
-      - ./../network/chaincodes:/opt/chaincodes
+      - ./../chaincodes:/opt/gopath/src/github.com/hyperledger/fabric/chaincodes

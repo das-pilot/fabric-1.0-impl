@@ -21,3 +21,5 @@ network/docker-compose-e2e.yaml
 network/block-listener/listener/listener
 network/chaincodes/java/wallet/.gradle/
 network/chaincodes/java/wallet/wallet.iml
+network/chaincodes/java/wallet/build/
+out/
