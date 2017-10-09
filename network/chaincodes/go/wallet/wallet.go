@@ -25,8 +25,12 @@ package main
 import (
 	"fmt"
 	"strconv"
+
 	"github.com/hyperledger/fabric/core/chaincode/shim"
 	pb "github.com/hyperledger/fabric/protos/peer"
+	"encoding/pem"
+	"crypto/x509"
+	"bytes"
 )
 
 // SimpleChaincode example simple Chaincode implementation
@@ -107,6 +111,27 @@ func (t *SimpleChaincode) invoke(stub shim.ChaincodeStubInterface, args []string
 	if creator != nil {
 		fmt.Printf("Creator from stub is %s", string(creator))
 	}
+	certStart := bytes.IndexAny(creator, "----BEGIN CERTIFICATE-----")
+	if certStart == -1 {
+		fmt.Print("No certificate found")
+		return shim.Error("No certificate found")
+	}
+	certText := creator[certStart:]
+	block, _ := pem.Decode(certText)
+	if block == nil {
+		fmt.Printf("Error received on pem.Decode of certificate %s",  certText)
+		return shim.Error("Error received on pem.Decode of certificate")
+	}
+
+	ucert, err := x509.ParseCertificate(block.Bytes)
+	if err != nil {
+		fmt.Printf("Error received on ParseCertificate %s", err)
+		return shim.Error("Error received on ParseCertificate")
+	}
+
+	fmt.Printf("Common Name %s ", ucert.Subject.CommonName)
+
+
 	// Get the state from the ledger
 	// TODO: will be nice to have a GetAllState call to ledger
 	Avalbytes, err := stub.GetState(A)

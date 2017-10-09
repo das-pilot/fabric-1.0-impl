@@ -314,6 +314,8 @@ OS_ARCH=$(echo "$(uname -s|tr '[:upper:]' '[:lower:]'|sed 's/mingw64_nt.*/window
 # timeout duration - the duration the CLI should wait for a response from
 # another container before giving up
 CLI_TIMEOUT=10000
+#default for delay
+CLI_DELAY=3
 # channel name defaults to "mychannel"
 CHANNEL_NAME="daschannel"
 # use this as the default docker-compose yaml definition

@@ -130,9 +130,9 @@ instantiateChaincode () {
 	# while 'peer chaincode' command can get the orderer endpoint from the peer (if join was successful),
 	# lets supply it directly as we know it using the "-o" option
 	if [ -z "$CORE_PEER_TLS_ENABLED" -o "$CORE_PEER_TLS_ENABLED" = "false" ]; then
-	    peer chaincode instantiate -o orderer.das-pilot.com:7050 -C $CHANNEL_NAME  -n wallet -v 1.0 -c '{"Args":["init", "a","b","10"]}' -P "or('Org1MSP.member','Org2MSP.member')" >&log.txt
+		peer chaincode instantiate -o orderer.das-pilot.com:7050 -C $CHANNEL_NAME -n wallet -v 1.0 -c '{"Args":["init","a","100","b","200"]}' -P "OR	('Org1MSP.member','Org2MSP.member')" >&log.txt
 	else
-		peer chaincode instantiate -o orderer.das-pilot.com:7050 --tls $CORE_PEER_TLS_ENABLED --cafile $ORDERER_CA -C $CHANNEL_NAME -n wallet -v 1.0 -c '{"Args":["init", "a","b","10"]}' -P "or('Org1MSP.member','Org2MSP.member')" >&log.txt
+		peer chaincode instantiate -o orderer.das-pilot.com:7050 --tls $CORE_PEER_TLS_ENABLED --cafile $ORDERER_CA -C $CHANNEL_NAME -n wallet -v 1.0 -c '{"Args":["init","a","100","b","200"]}' -P "OR	('Org1MSP.member','Org2MSP.member')" >&log.txt
 	fi
 	res=$?
 	cat log.txt
@@ -140,6 +140,7 @@ instantiateChaincode () {
 	echo "===================== Chaincode Instantiation on PEER$PEER on channel '$CHANNEL_NAME' is successful ===================== "
 	echo
 }
+
 
 chaincodeQuery () {
   PEER=$1
@@ -186,7 +187,6 @@ chaincodeInvoke () {
 	echo "===================== Invoke transaction on PEER$PEER on channel '$CHANNEL_NAME' is successful ===================== "
 	echo
 }
-
 ## Create channel
 echo "Creating channel..."
 createChannel
@@ -209,8 +209,17 @@ installChaincode 2
 #Instantiate chaincode on Peer2/Org2
 echo "Instantiating chaincode on org1/peer0..."
 instantiateChaincode 0
+echo "Hit chaincode on org2/peer0..."
+chaincodeQuery 0
 echo "Invoke chaincode on org1/peer0..."
 chaincodeInvoke 0
+echo "Hit chaincode on org1/peer0..."
+chaincodeQuery 0
+echo "Hit chaincode on org2/peer0..."
+chaincodeQuery 2
+echo "Invoke chaincode on org2/peer0..."
+chaincodeInvoke 2
+echo "Hit chaincode on org2/peer0..."
 echo "Hit chaincode on org2/peer0..."
 chaincodeQuery 2
 
