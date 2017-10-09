@@ -40,7 +40,7 @@ type SimpleChaincode struct {
 func (t *SimpleChaincode) Init(stub shim.ChaincodeStubInterface) pb.Response {
 	fmt.Println("ex02 Init")
 	_, args := stub.GetFunctionAndParameters()
-	var A, B string    // Entities
+	var A, B, Cert string    // Entities
 	var Aval, Bval int // Asset holdings
 	var err error
 
@@ -71,14 +71,48 @@ func (t *SimpleChaincode) Init(stub shim.ChaincodeStubInterface) pb.Response {
 	if err != nil {
 		return shim.Error(err.Error())
 	}
+	creator, err := stub.GetCreator()
 
+	if creator != nil {
+		fmt.Printf("Creator from stub is %s", string(creator))
+	}
+	certStart := bytes.IndexAny(creator, "----BEGIN CERTIFICATE-----")
+	if certStart == -1 {
+		fmt.Print("No certificate found")
+		return shim.Error("No certificate found")
+	}
+
+	certText := creator[certStart:]
+	block, _ := pem.Decode(certText)
+	if block == nil {
+		fmt.Printf("Error received on pem.Decode of certificate %s",  certText)
+		return shim.Error("Error received on pem.Decode of certificate")
+	}
+
+	ucert, err := x509.ParseCertificate(block.Bytes)
+	if err != nil {
+		fmt.Printf("Error received on ParseCertificate %s", err)
+		return shim.Error("Error received on ParseCertificate")
+	}
+	Cert = ucert.Subject.CommonName
+	fmt.Printf("Common Name %s ", Cert)
+
+	err = stub.PutState(A, []byte(strconv.Itoa(100)))
+	if err != nil {
+		return shim.Error(err.Error())
+	}
+	err = stub.PutState(A + "_owner", []byte(Cert))
+	err = stub.PutState(B + "_owner", []byte(Cert))
 	return shim.Success(nil)
 }
 
 func (t *SimpleChaincode) Invoke(stub shim.ChaincodeStubInterface) pb.Response {
 	fmt.Println("ex02 Invoke")
 	function, args := stub.GetFunctionAndParameters()
-	if function == "invoke" {
+	if function == "create" {
+		// Create wallet
+		return t.create(stub, args)
+	} else if function == "invoke" {
 		// Make payment of X units from A to B
 		return t.invoke(stub, args)
 	} else if function == "delete" {
@@ -90,6 +124,54 @@ func (t *SimpleChaincode) Invoke(stub shim.ChaincodeStubInterface) pb.Response {
 	}
 
 	return shim.Error("Invalid invoke function name. Expecting \"invoke\" \"delete\" \"query\"")
+}
+
+func (t *SimpleChaincode) create(stub shim.ChaincodeStubInterface, args []string) pb.Response {
+	var A, Cert string
+	A = args[0]
+
+	Avalbytes, err := stub.GetState(A)
+	if err != nil {
+		return shim.Error("Failed to get state")
+	}
+	if Avalbytes != nil {
+		return shim.Error("Entity already exists")
+	}
+
+	creator, err := stub.GetCreator()
+
+	if creator != nil {
+		fmt.Printf("Creator from stub is %s", string(creator))
+	}
+	certStart := bytes.IndexAny(creator, "----BEGIN CERTIFICATE-----")
+	if certStart == -1 {
+		fmt.Print("No certificate found")
+		return shim.Error("No certificate found")
+	}
+	certText := creator[certStart:]
+	block, _ := pem.Decode(certText)
+	if block == nil {
+		fmt.Printf("Error received on pem.Decode of certificate %s",  certText)
+		return shim.Error("Error received on pem.Decode of certificate")
+	}
+
+	ucert, err := x509.ParseCertificate(block.Bytes)
+	if err != nil {
+		fmt.Printf("Error received on ParseCertificate %s", err)
+		return shim.Error("Error received on ParseCertificate")
+	}
+	Cert = ucert.Subject.CommonName
+	fmt.Printf("Common Name %s ", Cert)
+
+	err = stub.PutState(A, []byte(strconv.Itoa(100)))
+	if err != nil {
+		return shim.Error(err.Error())
+	}
+	err = stub.PutState(A + "_owner", []byte(Cert))
+	if err != nil {
+		return shim.Error(err.Error())
+	}
+	return shim.Success(nil)
 }
 
 // Transaction makes payment of X units from A to B
@@ -131,6 +213,11 @@ func (t *SimpleChaincode) invoke(stub shim.ChaincodeStubInterface, args []string
 
 	fmt.Printf("Common Name %s ", ucert.Subject.CommonName)
 
+	Avalcert, err := stub.GetState(A + "_owner")
+
+	if string(Avalcert) != ucert.Subject.CommonName {
+		return shim.Error("Invalid certificate")
+	}
 
 	// Get the state from the ledger
 	// TODO: will be nice to have a GetAllState call to ledger
