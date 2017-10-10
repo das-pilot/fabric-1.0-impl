@@ -31,10 +31,45 @@ import (
 	"encoding/pem"
 	"crypto/x509"
 	"bytes"
+	"errors"
 )
 
 // SimpleChaincode example simple Chaincode implementation
 type SimpleChaincode struct {
+}
+
+
+func ParseCreatorCertificate(stub shim.ChaincodeStubInterface) (string, error) {
+	creator, err := stub.GetCreator()
+	if err != nil {
+		return "", err
+	}
+	if creator != nil {
+		fmt.Printf("Creator from stub is %s", string(creator))
+	} else {
+		fmt.Print("No certificate found")
+		return "", errors.New("No certificate found")
+	}
+	certStart := bytes.IndexAny(creator, "----BEGIN CERTIFICATE-----")
+	if certStart == -1 {
+		fmt.Print("No certificate found")
+		return "", errors.New("No certificate found")
+	}
+	certText := creator[certStart:]
+	block, _ := pem.Decode(certText)
+	if block == nil {
+		fmt.Printf("Error received on pem.Decode of certificate %s",  certText)
+		return "", errors.New("Error received on pem.Decode of certificate")
+	}
+
+	ucert, err := x509.ParseCertificate(block.Bytes)
+	if err != nil {
+		fmt.Printf("Error received on ParseCertificate %s", err)
+		return "", err
+	}
+
+	fmt.Printf("Common Name %s ", ucert.Subject.CommonName)
+	return ucert.Subject.CommonName, nil
 }
 
 func (t *SimpleChaincode) Init(stub shim.ChaincodeStubInterface) pb.Response {
@@ -71,30 +106,13 @@ func (t *SimpleChaincode) Init(stub shim.ChaincodeStubInterface) pb.Response {
 	if err != nil {
 		return shim.Error(err.Error())
 	}
-	creator, err := stub.GetCreator()
 
-	if creator != nil {
-		fmt.Printf("Creator from stub is %s", string(creator))
-	}
-	certStart := bytes.IndexAny(creator, "----BEGIN CERTIFICATE-----")
-	if certStart == -1 {
-		fmt.Print("No certificate found")
-		return shim.Error("No certificate found")
-	}
+	Cert, err = ParseCreatorCertificate(stub)
 
-	certText := creator[certStart:]
-	block, _ := pem.Decode(certText)
-	if block == nil {
-		fmt.Printf("Error received on pem.Decode of certificate %s",  certText)
-		return shim.Error("Error received on pem.Decode of certificate")
-	}
-
-	ucert, err := x509.ParseCertificate(block.Bytes)
 	if err != nil {
-		fmt.Printf("Error received on ParseCertificate %s", err)
-		return shim.Error("Error received on ParseCertificate")
+		return shim.Error(err.Error())
 	}
-	Cert = ucert.Subject.CommonName
+
 	fmt.Printf("Common Name %s ", Cert)
 
 	err = stub.PutState(A, []byte(strconv.Itoa(100)))
@@ -138,29 +156,8 @@ func (t *SimpleChaincode) create(stub shim.ChaincodeStubInterface, args []string
 		return shim.Error("Entity already exists")
 	}
 
-	creator, err := stub.GetCreator()
+	Cert, err = ParseCreatorCertificate(stub)
 
-	if creator != nil {
-		fmt.Printf("Creator from stub is %s", string(creator))
-	}
-	certStart := bytes.IndexAny(creator, "----BEGIN CERTIFICATE-----")
-	if certStart == -1 {
-		fmt.Print("No certificate found")
-		return shim.Error("No certificate found")
-	}
-	certText := creator[certStart:]
-	block, _ := pem.Decode(certText)
-	if block == nil {
-		fmt.Printf("Error received on pem.Decode of certificate %s",  certText)
-		return shim.Error("Error received on pem.Decode of certificate")
-	}
-
-	ucert, err := x509.ParseCertificate(block.Bytes)
-	if err != nil {
-		fmt.Printf("Error received on ParseCertificate %s", err)
-		return shim.Error("Error received on ParseCertificate")
-	}
-	Cert = ucert.Subject.CommonName
 	fmt.Printf("Common Name %s ", Cert)
 
 	err = stub.PutState(A, []byte(strconv.Itoa(100)))
@@ -176,7 +173,7 @@ func (t *SimpleChaincode) create(stub shim.ChaincodeStubInterface, args []string
 
 // Transaction makes payment of X units from A to B
 func (t *SimpleChaincode) invoke(stub shim.ChaincodeStubInterface, args []string) pb.Response {
-	var A, B string    // Entities
+	var A, B, Cert string    // Entities
 	var Aval, Bval int // Asset holdings
 	var X int          // Transaction value
 	var err error
@@ -188,34 +185,11 @@ func (t *SimpleChaincode) invoke(stub shim.ChaincodeStubInterface, args []string
 	A = args[0]
 	B = args[1]
 
-	creator, err := stub.GetCreator()
-
-	if creator != nil {
-		fmt.Printf("Creator from stub is %s", string(creator))
-	}
-	certStart := bytes.IndexAny(creator, "----BEGIN CERTIFICATE-----")
-	if certStart == -1 {
-		fmt.Print("No certificate found")
-		return shim.Error("No certificate found")
-	}
-	certText := creator[certStart:]
-	block, _ := pem.Decode(certText)
-	if block == nil {
-		fmt.Printf("Error received on pem.Decode of certificate %s",  certText)
-		return shim.Error("Error received on pem.Decode of certificate")
-	}
-
-	ucert, err := x509.ParseCertificate(block.Bytes)
-	if err != nil {
-		fmt.Printf("Error received on ParseCertificate %s", err)
-		return shim.Error("Error received on ParseCertificate")
-	}
-
-	fmt.Printf("Common Name %s ", ucert.Subject.CommonName)
+	Cert, err = ParseCreatorCertificate(stub)
 
 	Avalcert, err := stub.GetState(A + "_owner")
 
-	if string(Avalcert) != ucert.Subject.CommonName {
+	if string(Avalcert) != Cert {
 		return shim.Error("Invalid certificate")
 	}
 

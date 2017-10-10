@@ -173,6 +173,7 @@ chaincodeQuery () {
 
 chaincodeInvoke () {
 	PEER=$1
+	WITH_ERROR=$2
 	setGlobals $PEER
 	# while 'peer chaincode' command can get the orderer endpoint from the peer (if join was successful),
 	# lets supply it directly as we know it using the "-o" option
@@ -183,9 +184,13 @@ chaincodeInvoke () {
 	fi
 	res=$?
 	cat log.txt
-	verifyResult $res "Invoke execution on PEER$PEER failed "
-	echo "===================== Invoke transaction on PEER$PEER on channel '$CHANNEL_NAME' is successful ===================== "
-	echo
+	if [ $2 -ne 0 ] ; then
+	    echo "===================== Invoke transaction on PEER$PEER on channel '$CHANNEL_NAME' returned $res ===================== "
+	else
+	    verifyResult $res "Invoke execution on PEER$PEER failed "
+	    echo "===================== Invoke transaction on PEER$PEER on channel '$CHANNEL_NAME' is successful ===================== "
+	    echo
+	fi
 }
 ## Create channel
 echo "Creating channel..."
@@ -218,8 +223,7 @@ chaincodeQuery 0
 echo "Hit chaincode on org2/peer0..."
 chaincodeQuery 2
 echo "Invoke chaincode on org2/peer0..."
-chaincodeInvoke 2
-echo "Hit chaincode on org2/peer0..."
+chaincodeInvoke 2 1
 echo "Hit chaincode on org2/peer0..."
 chaincodeQuery 2
 
