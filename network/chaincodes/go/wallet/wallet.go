@@ -74,53 +74,10 @@ func ParseCreatorCertificate(stub shim.ChaincodeStubInterface) (string, error) {
 
 func (t *SimpleChaincode) Init(stub shim.ChaincodeStubInterface) pb.Response {
 	fmt.Println("ex02 Init")
-	_, args := stub.GetFunctionAndParameters()
-	var A, B, Cert string    // Entities
-	var Aval, Bval int // Asset holdings
-	var err error
-
-	if len(args) != 4 {
-		return shim.Error("Incorrect number of arguments. Expecting 4")
-	}
-
-	// Initialize the chaincode
-	A = args[0]
-	Aval, err = strconv.Atoi(args[1])
-	if err != nil {
-		return shim.Error("Expecting integer value for asset holding")
-	}
-	B = args[2]
-	Bval, err = strconv.Atoi(args[3])
-	if err != nil {
-		return shim.Error("Expecting integer value for asset holding")
-	}
-	fmt.Printf("Aval = %d, Bval = %d\n", Aval, Bval)
-
-	// Write the state to the ledger
-	err = stub.PutState(A, []byte(strconv.Itoa(Aval)))
+	err := stub.PutState("total_amount", []byte(strconv.Itoa(0)))
 	if err != nil {
 		return shim.Error(err.Error())
 	}
-
-	err = stub.PutState(B, []byte(strconv.Itoa(Bval)))
-	if err != nil {
-		return shim.Error(err.Error())
-	}
-
-	Cert, err = ParseCreatorCertificate(stub)
-
-	if err != nil {
-		return shim.Error(err.Error())
-	}
-
-	fmt.Printf("Common Name %s ", Cert)
-
-	err = stub.PutState(A, []byte(strconv.Itoa(100)))
-	if err != nil {
-		return shim.Error(err.Error())
-	}
-	err = stub.PutState(A + "_owner", []byte(Cert))
-	err = stub.PutState(B + "_owner", []byte(Cert))
 	return shim.Success(nil)
 }
 
@@ -130,12 +87,9 @@ func (t *SimpleChaincode) Invoke(stub shim.ChaincodeStubInterface) pb.Response {
 	if function == "create" {
 		// Create wallet
 		return t.create(stub, args)
-	} else if function == "invoke" {
+	} else if function == "charge" {
 		// Make payment of X units from A to B
-		return t.invoke(stub, args)
-	} else if function == "delete" {
-		// Deletes an entity from its state
-		return t.delete(stub, args)
+		return t.charge(stub, args)
 	} else if function == "query" {
 		// the old "Query" is now implemtned in invoke
 		return t.query(stub, args)
@@ -164,6 +118,22 @@ func (t *SimpleChaincode) create(stub shim.ChaincodeStubInterface, args []string
 	if err != nil {
 		return shim.Error(err.Error())
 	}
+
+	TotalBytes, err := stub.GetState("total_amount")
+	if err != nil {
+		return shim.Error("Failed to get state")
+	}
+	if TotalBytes == nil {
+		return shim.Error("Entity not found")
+	}
+	Total, _ := strconv.Atoi(string(TotalBytes))
+
+
+	err = stub.PutState("total_amount", []byte(strconv.Itoa(Total + 100)))
+	if err != nil {
+		return shim.Error(err.Error())
+	}
+
 	err = stub.PutState(A + "_owner", []byte(Cert))
 	if err != nil {
 		return shim.Error(err.Error())
@@ -172,7 +142,7 @@ func (t *SimpleChaincode) create(stub shim.ChaincodeStubInterface, args []string
 }
 
 // Transaction makes payment of X units from A to B
-func (t *SimpleChaincode) invoke(stub shim.ChaincodeStubInterface, args []string) pb.Response {
+func (t *SimpleChaincode) charge(stub shim.ChaincodeStubInterface, args []string) pb.Response {
 	var A, B, Cert string    // Entities
 	var Aval, Bval int // Asset holdings
 	var X int          // Transaction value
@@ -231,23 +201,6 @@ func (t *SimpleChaincode) invoke(stub shim.ChaincodeStubInterface, args []string
 	err = stub.PutState(B, []byte(strconv.Itoa(Bval)))
 	if err != nil {
 		return shim.Error(err.Error())
-	}
-
-	return shim.Success(nil)
-}
-
-// Deletes an entity from state
-func (t *SimpleChaincode) delete(stub shim.ChaincodeStubInterface, args []string) pb.Response {
-	if len(args) != 1 {
-		return shim.Error("Incorrect number of arguments. Expecting 1")
-	}
-
-	A := args[0]
-
-	// Delete the key from the state in ledger
-	err := stub.DelState(A)
-	if err != nil {
-		return shim.Error("Failed to delete state")
 	}
 
 	return shim.Success(nil)

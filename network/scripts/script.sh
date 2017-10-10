@@ -144,6 +144,7 @@ instantiateChaincode () {
 
 chaincodeQuery () {
   PEER=$1
+  WALLET=$2
   echo "===================== Querying on PEER$PEER on channel '$CHANNEL_NAME'... ===================== "
   setGlobals $PEER
   local rc=1
@@ -155,7 +156,7 @@ chaincodeQuery () {
   do
      sleep 3
      echo "Attempting to Query PEER$PEER ...$(($(date +%s)-starttime)) secs"
-     peer chaincode query -C $CHANNEL_NAME -n wallet -c '{"Args":["query","a"]}' >&log.txt
+     peer chaincode query -C $CHANNEL_NAME -n wallet -c '{"Args":["query","'${WALLET}'"]}' >&log.txt
      test $? -eq 0 && VALUE=$(cat log.txt | awk '/Query Result/ {print $NF}')
      let rc=0
   done
@@ -171,16 +172,36 @@ chaincodeQuery () {
   fi
 }
 
-chaincodeInvoke () {
+chainCodeCreateWallet () {
 	PEER=$1
-	WITH_ERROR=$2
+    WALLET=$2
 	setGlobals $PEER
 	# while 'peer chaincode' command can get the orderer endpoint from the peer (if join was successful),
 	# lets supply it directly as we know it using the "-o" option
 	if [ -z "$CORE_PEER_TLS_ENABLED" -o "$CORE_PEER_TLS_ENABLED" = "false" ]; then
-		peer chaincode invoke -o orderer.das-pilot.com:7050 -C $CHANNEL_NAME -n wallet -c '{"Args":["invoke","a","b","10"]}' >&log.txt
+		peer chaincode invoke -o orderer.das-pilot.com:7050 -C $CHANNEL_NAME -n wallet -c '{"Args":["create","'${WALLET}'"]}' >&log.txt
 	else
-		peer chaincode invoke -o orderer.das-pilot.com:7050  --tls $CORE_PEER_TLS_ENABLED --cafile $ORDERER_CA -C $CHANNEL_NAME -n wallet -c '{"Args":["invoke","a","b","10"]}' >&log.txt
+		peer chaincode invoke -o orderer.das-pilot.com:7050  --tls $CORE_PEER_TLS_ENABLED --cafile $ORDERER_CA -C $CHANNEL_NAME -n wallet -c '{"Args":["create","'${WALLET}'"]}' >&log.txt
+	fi
+	res=$?
+	cat log.txt
+	verifyResult $res "Invoke execution on PEER$PEER failed "
+	echo "===================== Invoke transaction on PEER$PEER on channel '$CHANNEL_NAME' is successful ===================== "
+	echo
+}
+
+chainCodeCharge () {
+	PEER=$1
+	CHARGE_FROM=$2
+	CHARGE_TO=$3
+	WITH_ERROR=$4
+	setGlobals $PEER
+	# while 'peer chaincode' command can get the orderer endpoint from the peer (if join was successful),
+	# lets supply it directly as we know it using the "-o" option
+	if [ -z "$CORE_PEER_TLS_ENABLED" -o "$CORE_PEER_TLS_ENABLED" = "false" ]; then
+		peer chaincode invoke -o orderer.das-pilot.com:7050 -C $CHANNEL_NAME -n wallet -c '{"Args":["charge","'${CHARGE_FROM}'","'${CHARGE_TO}'","10"]}' >&log.txt
+	else
+		peer chaincode invoke -o orderer.das-pilot.com:7050  --tls $CORE_PEER_TLS_ENABLED --cafile $ORDERER_CA -C $CHANNEL_NAME -n wallet -c '{"Args":["charge","'$CHARGE_FROM'","'$CHARGE_TO'","10"]}' >&log.txt
 	fi
 	res=$?
 	cat log.txt
@@ -214,18 +235,22 @@ installChaincode 2
 #Instantiate chaincode on Peer2/Org2
 echo "Instantiating chaincode on org1/peer0..."
 instantiateChaincode 0
-echo "Hit chaincode on org2/peer0..."
-chaincodeQuery 0
-echo "Invoke chaincode on org1/peer0..."
-chaincodeInvoke 0
-echo "Hit chaincode on org1/peer0..."
-chaincodeQuery 0
-echo "Hit chaincode on org2/peer0..."
-chaincodeQuery 2
+echo "Query 'total_amount'"
+chaincodeQuery 0 "total_amount"
+echo "Creating wallet 'one'"
+chainCodeCreateWallet 0 "one"
+echo "Query chaincode on org1/peer0..."
+chaincodeQuery 0 "one"
 echo "Invoke chaincode on org2/peer0..."
-chaincodeInvoke 2 1
-echo "Hit chaincode on org2/peer0..."
-chaincodeQuery 2
+chaincodeQuery 2 "one"
+echo "Create wallet 'two' on org2/peer0..."
+chainCodeCreateWallet 0 "two"
+echo "Query wallet 'two'"
+chaincodeQuery 2 "two"
+echo "Charge 'one'->'two' chaincode on org1/peer0..."
+chainCodeCharge 0 "one" "two"
+echo "Query wallet 'one' on org2/peer0..."
+chaincodeQuery 2 "one"
 
 echo
 echo "========= All GOOD, BYFN execution completed =========== "
