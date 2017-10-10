@@ -244,12 +244,20 @@ chaincodeQuery 0 "one"
 echo "Invoke chaincode on org2/peer0..."
 chaincodeQuery 2 "one"
 echo "Create wallet 'two' on org2/peer0..."
-chainCodeCreateWallet 0 "two"
+chainCodeCreateWallet 2 "two"
 echo "Query wallet 'two'"
 chaincodeQuery 2 "two"
 echo "Charge 'one'->'two' chaincode on org1/peer0..."
 chainCodeCharge 0 "one" "two"
 echo "Query wallet 'one' on org2/peer0..."
+chaincodeQuery 2 "one"
+echo "Charge 'two'->'one"
+chainCodeCharge 2 "two" "one"
+sleep 5
+chainCodeCharge 2 "two" "one"
+sleep 5
+chainCodeCharge 2 "two" "one"
+sleep 5
 chaincodeQuery 2 "one"
 
 echo

@@ -44,9 +44,7 @@ func ParseCreatorCertificate(stub shim.ChaincodeStubInterface) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	if creator != nil {
-		fmt.Printf("Creator from stub is %s", string(creator))
-	} else {
+	if creator == nil {
 		fmt.Print("No certificate found")
 		return "", errors.New("No certificate found")
 	}
@@ -111,8 +109,6 @@ func (t *SimpleChaincode) create(stub shim.ChaincodeStubInterface, args []string
 	}
 
 	Cert, err = ParseCreatorCertificate(stub)
-
-	fmt.Printf("Common Name %s ", Cert)
 
 	err = stub.PutState(A, []byte(strconv.Itoa(100)))
 	if err != nil {
