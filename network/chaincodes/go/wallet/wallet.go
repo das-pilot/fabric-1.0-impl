@@ -49,8 +49,8 @@ func ParseCreatorCertificate(stub shim.ChaincodeStubInterface) (string, error) {
 }
 
 func (t *SimpleChaincode) Init(stub shim.ChaincodeStubInterface) pb.Response {
-	fmt.Println("ex02 Init")
-	err := stub.PutState("total_amount", []byte(strconv.Itoa(0)))
+	fmt.Println("Wallet Init")
+	err := stub.PutState("total_amount", []byte("0"))
 	if err != nil {
 		return shim.Error(err.Error())
 	}
@@ -58,7 +58,7 @@ func (t *SimpleChaincode) Init(stub shim.ChaincodeStubInterface) pb.Response {
 }
 
 func (t *SimpleChaincode) Invoke(stub shim.ChaincodeStubInterface) pb.Response {
-	fmt.Println("ex02 Invoke")
+	fmt.Println("Wallet Invoke")
 	function, args := stub.GetFunctionAndParameters()
 	if function == "create" {
 		// Create wallet
@@ -68,7 +68,7 @@ func (t *SimpleChaincode) Invoke(stub shim.ChaincodeStubInterface) pb.Response {
 		return t.charge(stub, args)
 	} else if function == "query" {
 		// the old "Query" is now implemtned in invoke
-		return t.query(stub, args)
+		return t.getBalance(stub, args)
 	}
 
 	return shim.Error("Invalid invoke function name. Expecting \"invoke\" \"delete\" \"query\"")
@@ -78,7 +78,7 @@ func (t *SimpleChaincode) create(stub shim.ChaincodeStubInterface, args []string
 	var accountName, cert string
 	accountName = args[0]
 
-	accountValBytes, err := stub.GetState(accountName)
+	accountValBytes, err := stub.GetState(accountName + "_owner")
 	if err != nil {
 		return shim.Error("Failed to get state")
 	}
@@ -88,26 +88,6 @@ func (t *SimpleChaincode) create(stub shim.ChaincodeStubInterface, args []string
 
 	cert, err = ParseCreatorCertificate(stub)
 
-	err = stub.PutState(accountName, []byte(strconv.Itoa(100)))
-	if err != nil {
-		return shim.Error(err.Error())
-	}
-
-	totalBytes, err := stub.GetState("total_amount")
-	if err != nil {
-		return shim.Error("Failed to get state")
-	}
-	if totalBytes == nil {
-		return shim.Error("Entity not found")
-	}
-	Total, _ := strconv.Atoi(string(totalBytes))
-
-
-	err = stub.PutState("total_amount", []byte(strconv.Itoa(Total + 100)))
-	if err != nil {
-		return shim.Error(err.Error())
-	}
-
 	err = stub.PutState(accountName + "_owner", []byte(cert))
 	if err != nil {
 		return shim.Error(err.Error())
@@ -115,11 +95,11 @@ func (t *SimpleChaincode) create(stub shim.ChaincodeStubInterface, args []string
 	return shim.Success(nil)
 }
 
-// Transaction makes payment of X units from A to B
+// Transaction charges of X units from source to destination
 func (t *SimpleChaincode) charge(stub shim.ChaincodeStubInterface, args []string) pb.Response {
 	var sourceAccount, destinationAccount, cert string    // Entities
-	var sourceValue, destinationValue int // Asset holdings
-	var chargeAmount int          // Transaction value
+	var sourceValue, destinationValue float64 // Asset holdings
+	var chargeAmount float64          // Charge value
 	var err error
 
 	if len(args) != 3 {
@@ -139,26 +119,29 @@ func (t *SimpleChaincode) charge(stub shim.ChaincodeStubInterface, args []string
 
 	// Get the state from the ledger
 	// TODO: will be nice to have a GetAllState call to ledger
-	sourceValBytes, err := stub.GetState(sourceAccount)
+	sourceValBytes, err := stub.GetState(sourceAccount + "." + destinationAccount)
 	if err != nil {
 		return shim.Error("Failed to get state")
 	}
-	if sourceValBytes == nil {
-		return shim.Error("Entity not found")
-	}
-	sourceValue, _ = strconv.Atoi(string(sourceValBytes))
 
-	destinationValBytes, err := stub.GetState(destinationAccount)
+	if sourceValBytes == nil {
+		sourceValue = 0
+	} else {
+		sourceValue, _ = strconv.ParseFloat(string(sourceValBytes), 64)
+	}
+
+	destinationValBytes, err := stub.GetState(destinationAccount + "." + sourceAccount)
 	if err != nil {
 		return shim.Error("Failed to get state")
 	}
 	if destinationValBytes == nil {
-		return shim.Error("Entity not found")
+		destinationValue = 0
+	} else {
+		destinationValue, _ = strconv.ParseFloat(string(destinationValBytes), 64)
 	}
-	destinationValue, _ = strconv.Atoi(string(destinationValBytes))
 
 	// Perform the execution
-	chargeAmount, err = strconv.Atoi(args[2])
+	chargeAmount, err = strconv.ParseFloat(args[2], 64)
 	if err != nil {
 		return shim.Error("Invalid transaction amount, expecting a integer value")
 	}
@@ -167,12 +150,12 @@ func (t *SimpleChaincode) charge(stub shim.ChaincodeStubInterface, args []string
 	fmt.Printf("Aval = %d, Bval = %d\n", sourceValue, destinationValue)
 
 	// Write the state back to the ledger
-	err = stub.PutState(sourceAccount, []byte(strconv.Itoa(sourceValue)))
+	err = stub.PutState(sourceAccount  + "." + destinationAccount, []byte(strconv.FormatFloat(sourceValue, 'f', 2, 64)))
 	if err != nil {
 		return shim.Error(err.Error())
 	}
 
-	err = stub.PutState(destinationAccount, []byte(strconv.Itoa(destinationValue)))
+	err = stub.PutState(destinationAccount + "." + sourceAccount, []byte(strconv.FormatFloat(destinationValue, 'f', 2, 64)))
 	if err != nil {
 		return shim.Error(err.Error())
 	}
@@ -181,29 +164,31 @@ func (t *SimpleChaincode) charge(stub shim.ChaincodeStubInterface, args []string
 }
 
 // query callback representing the query of a chaincode
-func (t *SimpleChaincode) query(stub shim.ChaincodeStubInterface, args []string) pb.Response {
-	var accountName string // Entities
+func (t *SimpleChaincode) getBalance(stub shim.ChaincodeStubInterface, args []string) pb.Response {
+	var sourceAccountName, destinationAccountName string // Entities
 	var err error
 
-	if len(args) != 1 {
+	if len(args) != 2 {
 		return shim.Error("Incorrect number of arguments. Expecting name of the person to query")
 	}
 
-	accountName = args[0]
+	sourceAccountName = args[0]
+	destinationAccountName = args[1]
 
 	// Get the state from the ledger
-	accountValBytes, err := stub.GetState(accountName)
+	accountValBytes, err := stub.GetState(sourceAccountName + "." + destinationAccountName)
 	if err != nil {
-		jsonResp := "{\"Error\":\"Failed to get state for " + accountName + "\"}"
+		jsonResp := "{\"Error\":\"Failed to get state for " + sourceAccountName + "." + destinationAccountName + "\"}"
 		return shim.Error(jsonResp)
 	}
 
 	if accountValBytes == nil {
-		jsonResp := "{\"Error\":\"Nil amount for " + accountName + "\"}"
-		return shim.Error(jsonResp)
+		accountValBytes = []byte("0")
 	}
 
-	jsonResp := "{\"Name\":\"" + accountName + "\",\"Amount\":\"" + string(accountValBytes) + "\"}"
+	jsonResp := "{\"Source\":\"" + sourceAccountName + "\"," +
+		"\"Destination\":\"" + destinationAccountName + "\",\"" +
+		"Amount\":\"" + string(accountValBytes) + "\"}"
 	fmt.Printf("Query Response:%s\n", jsonResp)
 	return shim.Success(accountValBytes)
 }

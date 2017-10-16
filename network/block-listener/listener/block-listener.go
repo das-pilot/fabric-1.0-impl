@@ -19,7 +19,6 @@ import (
 	"fmt"
 	"os"
 	"bytes"
-	"encoding/json"
 	"io/ioutil"
 	"net/http"
 
@@ -31,6 +30,7 @@ import (
 	"github.com/hyperledger/fabric/protos/common"
 	pb "github.com/hyperledger/fabric/protos/peer"
 	"github.com/hyperledger/fabric/protos/utils"
+	"strconv"
 )
 
 type adapter struct {
@@ -136,11 +136,12 @@ func getChainCodeEvents(tdata []byte) (*pb.ChaincodeEvent, error) {
 	return nil, errors.New("No events found")
 }
 
-func postTransactionUpdate(url string, transaction *pb.Event_Block) {
+func postTransactionUpdate(url string, txId string, isValid bool) {
+	var jsonString string
+	jsonString = "{\"txId\":\"" + txId + "\", \"isInvalid\":" + strconv.FormatBool(isValid) + "}"
 	fmt.Println("Posting to URL:>", url)
-
-	jsonTx, _ := json.Marshal(transaction)
-	req, _ := http.NewRequest("POST", url, bytes.NewBuffer(jsonTx))
+	fmt.Printf("Transaction %s\n", jsonString)
+	req, _ := http.NewRequest("POST", url, bytes.NewBuffer([]byte(jsonString)))
 	req.Header.Set("Content-Type", "application/json")
 
 	client := &http.Client{}
@@ -210,6 +211,7 @@ func main() {
 						fmt.Print("Error extracting channel header\n")
 						return
 					}
+					postTransactionUpdate(updateReceiverURL, chdr.TxId, txsFltr.IsInvalid(i))
 					if txsFltr.IsInvalid(i) {
 						fmt.Println("")
 						fmt.Println("")
@@ -221,7 +223,6 @@ func main() {
 						if event, err := getChainCodeEvents(r); err == nil {
 							if len(chaincodeID) != 0 {
 								fmt.Println("Post chaincode event")
-								postTransactionUpdate(updateReceiverURL, b)
 							}
 
 							if len(chaincodeID) != 0 && event.ChaincodeId == chaincodeID {

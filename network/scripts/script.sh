@@ -15,7 +15,8 @@ CHANNEL_NAME="$1"
 COUNTER=1
 MAX_RETRY=5
 ORDERER_CA=/opt/gopath/src/github.com/hyperledger/fabric/peer/crypto/ordererOrganizations/das-pilot.com/orderers/orderer.das-pilot.com/msp/tlscacerts/tlsca.das-pilot.com-cert.pem
-
+RED='\033[0;31m'
+NC='\033[0m' # No Color
 echo "Channel name : "$CHANNEL_NAME
 
 # verify the result of the end-to-end test
@@ -130,9 +131,9 @@ instantiateChaincode () {
 	# while 'peer chaincode' command can get the orderer endpoint from the peer (if join was successful),
 	# lets supply it directly as we know it using the "-o" option
 	if [ -z "$CORE_PEER_TLS_ENABLED" -o "$CORE_PEER_TLS_ENABLED" = "false" ]; then
-		peer chaincode instantiate -o orderer.das-pilot.com:7050 -C $CHANNEL_NAME -n wallet -v 1.0 -c '{"Args":["init","a","100","b","200"]}' -P "OR	('Org1MSP.member','Org2MSP.member')" >&log.txt
+		peer chaincode instantiate -o orderer.das-pilot.com:7050 -C $CHANNEL_NAME -n wallet -v 1.0 -c '{"Args":["init""]}' -P "OR	('Org1MSP.member','Org2MSP.member')" >&log.txt
 	else
-		peer chaincode instantiate -o orderer.das-pilot.com:7050 --tls $CORE_PEER_TLS_ENABLED --cafile $ORDERER_CA -C $CHANNEL_NAME -n wallet -v 1.0 -c '{"Args":["init","a","100","b","200"]}' -P "OR	('Org1MSP.member','Org2MSP.member')" >&log.txt
+		peer chaincode instantiate -o orderer.das-pilot.com:7050 --tls $CORE_PEER_TLS_ENABLED --cafile $ORDERER_CA -C $CHANNEL_NAME -n wallet -v 1.0 -c '{"Args":["init"]}' -P "OR	('Org1MSP.member','Org2MSP.member')" >&log.txt
 	fi
 	res=$?
 	cat log.txt
@@ -144,7 +145,8 @@ instantiateChaincode () {
 
 chaincodeQuery () {
   PEER=$1
-  WALLET=$2
+  SOURCE=$2
+  DESTINATION=$3
   echo "===================== Querying on PEER$PEER on channel '$CHANNEL_NAME'... ===================== "
   setGlobals $PEER
   local rc=1
@@ -156,8 +158,10 @@ chaincodeQuery () {
   do
      sleep 3
      echo "Attempting to Query PEER$PEER ...$(($(date +%s)-starttime)) secs"
-     peer chaincode query -C $CHANNEL_NAME -n wallet -c '{"Args":["query","'${WALLET}'"]}' >&log.txt
-     test $? -eq 0 && VALUE=$(cat log.txt | awk '/Query Result/ {print $NF}')
+     peer chaincode query -C $CHANNEL_NAME -n wallet -c '{"Args":["query","'${SOURCE}'","'${DESTINATION}'"]}' >&log.txt
+     #test $? -eq 0 && VALUE=$(cat log.txt | awk '/Query Result/ {print $NF}')
+     VALUE=$(cat log.txt | awk '/Query Result/ {print $NF}')
+     printf "${RED}Balance for ${SOURCE}/${DESTINATION} is: ${VALUE}${NC}"
      let rc=0
   done
   echo
@@ -194,24 +198,20 @@ chainCodeCharge () {
 	PEER=$1
 	CHARGE_FROM=$2
 	CHARGE_TO=$3
-	WITH_ERROR=$4
+	AMOUNT=$4
 	setGlobals $PEER
 	# while 'peer chaincode' command can get the orderer endpoint from the peer (if join was successful),
 	# lets supply it directly as we know it using the "-o" option
 	if [ -z "$CORE_PEER_TLS_ENABLED" -o "$CORE_PEER_TLS_ENABLED" = "false" ]; then
-		peer chaincode invoke -o orderer.das-pilot.com:7050 -C $CHANNEL_NAME -n wallet -c '{"Args":["charge","'${CHARGE_FROM}'","'${CHARGE_TO}'","10"]}' >&log.txt
+		peer chaincode invoke -o orderer.das-pilot.com:7050 -C $CHANNEL_NAME -n wallet -c '{"Args":["charge","'${CHARGE_FROM}'","'${CHARGE_TO}'","'${AMOUNT}'"]}' >&log.txt
 	else
-		peer chaincode invoke -o orderer.das-pilot.com:7050  --tls $CORE_PEER_TLS_ENABLED --cafile $ORDERER_CA -C $CHANNEL_NAME -n wallet -c '{"Args":["charge","'$CHARGE_FROM'","'$CHARGE_TO'","10"]}' >&log.txt
+		peer chaincode invoke -o orderer.das-pilot.com:7050  --tls $CORE_PEER_TLS_ENABLED --cafile $ORDERER_CA -C $CHANNEL_NAME -n wallet -c '{"Args":["charge","'${CHARGE_FROM}'","'${CHARGE_TO}'","'${AMOUNT}'"]}' >&log.txt
 	fi
 	res=$?
 	cat log.txt
-	if [ $2 -ne 0 ] ; then
-	    echo "===================== Invoke transaction on PEER$PEER on channel '$CHANNEL_NAME' returned $res ===================== "
-	else
-	    verifyResult $res "Invoke execution on PEER$PEER failed "
-	    echo "===================== Invoke transaction on PEER$PEER on channel '$CHANNEL_NAME' is successful ===================== "
-	    echo
-	fi
+	verifyResult $res "Invoke execution on PEER$PEER failed "
+	echo "===================== Invoke transaction on PEER$PEER on channel '$CHANNEL_NAME' is successful ===================== "
+	echo
 }
 ## Create channel
 echo "Creating channel..."
@@ -236,29 +236,30 @@ installChaincode 2
 echo "Instantiating chaincode on org1/peer0..."
 instantiateChaincode 0
 echo "Query 'total_amount'"
-chaincodeQuery 0 "total_amount"
+chaincodeQuery 0 "total_amount" "one"
 echo "Creating wallet 'one'"
 chainCodeCreateWallet 0 "one"
 echo "Query chaincode on org1/peer0..."
-chaincodeQuery 0 "one"
-echo "Invoke chaincode on org2/peer0..."
-chaincodeQuery 2 "one"
+chaincodeQuery 0 "one" "two"
+echo "Query chaincode on org2/peer0..."
+chaincodeQuery 2 "one" "two"
 echo "Create wallet 'two' on org2/peer0..."
 chainCodeCreateWallet 2 "two"
 echo "Query wallet 'two'"
-chaincodeQuery 2 "two"
+chaincodeQuery 2 "two" "one"
 echo "Charge 'one'->'two' chaincode on org1/peer0..."
-chainCodeCharge 0 "one" "two"
+chainCodeCharge 0 "one" "two" "9.99"
 echo "Query wallet 'one' on org2/peer0..."
-chaincodeQuery 2 "one"
+chaincodeQuery 2 "one" "two"
 echo "Charge 'two'->'one"
-chainCodeCharge 2 "two" "one"
+chainCodeCharge 2 "two" "one" "3.33"
 sleep 5
-chainCodeCharge 2 "two" "one"
+chainCodeCharge 2 "two" "one" "3.33"
 sleep 5
-chainCodeCharge 2 "two" "one"
+chaincodeQuery 2 "one" "two"
+chainCodeCharge 2 "two" "one" "3.33"
 sleep 5
-chaincodeQuery 2 "one"
+chaincodeQuery 2 "one" "two"
 
 echo
 echo "========= All GOOD, BYFN execution completed =========== "
