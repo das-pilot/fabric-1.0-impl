@@ -5,7 +5,6 @@ import (
 	"math/rand"
 	"time"
 	"encoding/json"
-	"container/list"
 )
 
 type HistoryResponse struct {

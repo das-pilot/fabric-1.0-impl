@@ -10,6 +10,7 @@ import (
 	"bytes"
 	"errors"
 	"encoding/json"
+	"time"
 )
 
 // SimpleChaincode example simple Chaincode implementation
@@ -245,7 +246,8 @@ func (t *SimpleChaincode) queryHistory(stub shim.ChaincodeStubInterface, args []
 			Wallet:  destinationAccount,
 			Amount:  amount,
 			Message: message,
-			Time:    qResult.Timestamp.String()})
+			Time:    time.Unix(qResult.Timestamp.GetSeconds(),
+				int64(qResult.Timestamp.GetNanos())).Format("15.01.2006 15:04:05")})
 	}
 	jsonStr, err := json.Marshal(response)
 	fmt.Print(jsonStr)
