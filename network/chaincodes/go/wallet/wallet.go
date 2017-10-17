@@ -3,19 +3,25 @@ package main
 import (
 	"fmt"
 	"strconv"
-
 	"github.com/hyperledger/fabric/core/chaincode/shim"
 	pb "github.com/hyperledger/fabric/protos/peer"
 	"encoding/pem"
 	"crypto/x509"
 	"bytes"
 	"errors"
+	"encoding/json"
 )
 
 // SimpleChaincode example simple Chaincode implementation
 type SimpleChaincode struct {
 }
 
+type HistoryResponse struct {
+	Wallet  string
+	Amount  float64
+	Message string
+	Time    string
+}
 
 func ParseCreatorCertificate(stub shim.ChaincodeStubInterface) (string, error) {
 	creator, err := stub.GetCreator()
@@ -69,6 +75,8 @@ func (t *SimpleChaincode) Invoke(stub shim.ChaincodeStubInterface) pb.Response {
 	} else if function == "query" {
 		// the old "Query" is now implemtned in invoke
 		return t.getBalance(stub, args)
+	} else if function == "queryHistory" {
+		return t.queryHistory(stub, args)
 	}
 
 	return shim.Error("Invalid invoke function name. Expecting \"invoke\" \"delete\" \"query\"")
@@ -191,6 +199,57 @@ func (t *SimpleChaincode) getBalance(stub shim.ChaincodeStubInterface, args []st
 		"Amount\":\"" + string(accountValBytes) + "\"}"
 	fmt.Printf("Query Response:%s\n", jsonResp)
 	return shim.Success(accountValBytes)
+}
+
+func (t *SimpleChaincode) queryHistory(stub shim.ChaincodeStubInterface, args []string) pb.Response {
+	var sourceAccount, destinationAccount string
+	sourceAccount = args[0]
+	destinationAccount = args[1]
+	iterator, err := stub.GetHistoryForKey(sourceAccount + "." + destinationAccount)
+	if err != nil {
+		jsonResp := "{\"Error\":\"Failed to get state for " + sourceAccount + "." + destinationAccount + "\"}"
+		fmt.Print(jsonResp)
+		return shim.Error(jsonResp)
+	}
+	var prevVal, amount float64
+	var flag bool
+	flag = false
+	prevVal = 0
+	response := []HistoryResponse{}
+	for ;iterator.HasNext(); {
+		qResult, err := iterator.Next()
+		if err != nil {
+			jsonResp := "{\"Error\":\"Failed to get state for " + sourceAccount + "." + destinationAccount + "\"}"
+			fmt.Print(jsonResp)
+			return shim.Error(jsonResp)
+		}
+
+		accountValBytes := qResult.Value
+		value, err := strconv.ParseFloat(string(accountValBytes), 64)
+		if err != nil {
+			return shim.Error(err.Error())
+		}
+		if !flag {
+			amount = value
+			prevVal = amount
+			flag = true
+		} else {
+			amount = value - prevVal
+			prevVal = value
+		}
+		message := "INCOME"
+		if amount < 0 {
+			message = "SPENT"
+		}
+		response = append(response, HistoryResponse{
+			Wallet:  destinationAccount,
+			Amount:  amount,
+			Message: message,
+			Time:    qResult.Timestamp.String()})
+	}
+	jsonStr, err := json.Marshal(response)
+	fmt.Print(jsonStr)
+	return shim.Success(jsonStr)
 }
 
 func main() {

@@ -176,6 +176,39 @@ chaincodeQuery () {
   fi
 }
 
+chaincodeQueryHistory () {
+  PEER=$1
+  SOURCE=$2
+  DESTINATION=$3
+  echo "===================== Querying on PEER$PEER on channel '$CHANNEL_NAME'... ===================== "
+  setGlobals $PEER
+  local rc=1
+  local starttime=$(date +%s)
+
+  # continue to poll
+  # we either get a successful response, or reach TIMEOUT
+  while test "$(($(date +%s)-starttime))" -lt "$TIMEOUT" -a $rc -ne 0
+  do
+     sleep 3
+     echo "Attempting to Query PEER$PEER ...$(($(date +%s)-starttime)) secs"
+     peer chaincode query -C $CHANNEL_NAME -n wallet -c '{"Args":["queryHistory","'${SOURCE}'","'${DESTINATION}'"]}' >&log.txt
+     #test $? -eq 0 && VALUE=$(cat log.txt | awk '/Query Result/ {print $NF}')
+     VALUE=$(cat log.txt | grep 'Query Result')
+     printf "${RED}History for ${SOURCE}/${DESTINATION} is: ${VALUE}${NC}"
+     let rc=0
+  done
+  echo
+  cat log.txt
+  if test $rc -eq 0 ; then
+	echo "===================== Query on PEER$PEER on channel '$CHANNEL_NAME' is successful ===================== "
+  else
+	echo "!!!!!!!!!!!!!!! Query result on PEER$PEER is INVALID !!!!!!!!!!!!!!!!"
+        echo "================== ERROR !!! FAILED to execute End-2-End Scenario =================="
+	echo
+	exit 1
+  fi
+}
+
 chainCodeCreateWallet () {
 	PEER=$1
     WALLET=$2
@@ -261,6 +294,7 @@ chainCodeCharge 2 "two" "one" "3.33"
 sleep 5
 chaincodeQuery 2 "one" "two"
 
+chaincodeQueryHistory 2 "one" "two"
 echo
 echo "========= All GOOD, BYFN execution completed =========== "
 echo
