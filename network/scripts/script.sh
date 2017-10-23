@@ -298,7 +298,7 @@ chaincodeQueryHistory 2 "one" "two"
 echo
 echo "========= All GOOD, BYFN execution completed =========== "
 echo
-
+echo
 echo
 echo " _____   _   _   ____   "
 echo "| ____| | \ | | |  _ \  "

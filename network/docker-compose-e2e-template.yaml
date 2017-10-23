@@ -116,3 +116,24 @@ services:
         - peer0.org2.das-pilot.com
       networks:
         - byfn
+  das-api:
+      container_name: das-api
+      image: hyperledger/fabric-tools
+      environment:
+        - GOPATH=/opt/gopath
+        - CORE_VM_ENDPOINT=unix:///host/var/run/docker.sock
+        - CORE_LOGGING_LEVEL=DEBUG
+        - CORE_PEER_ID=cli
+        - CORE_PEER_ADDRESS=peer0.org1.das-pilot.com:7051
+        - CORE_PEER_LOCALMSPID=Org1MSP
+        - CORE_PEER_TLS_ENABLED=true
+        - CORE_PEER_TLS_CERT_FILE=/opt/gopath/src/github.com/hyperledger/fabric/peer/crypto/peerOrganizations/org1.das-pilot.com/peers/peer0.org1.das-pilot.com/tls/server.crt
+        - CORE_PEER_TLS_KEY_FILE=/opt/gopath/src/github.com/hyperledger/fabric/peer/crypto/peerOrganizations/org1.das-pilot.com/peers/peer0.org1.das-pilot.com/tls/server.key
+        - CORE_PEER_TLS_ROOTCERT_FILE=/opt/gopath/src/github.com/hyperledger/fabric/peer/crypto/peerOrganizations/org1.das-pilot.com/peers/peer0.org1.das-pilot.com/tls/ca.crt
+        - CORE_PEER_MSPCONFIGPATH=/opt/gopath/src/github.com/hyperledger/fabric/peer/crypto/peerOrganizations/org1.das-pilot.com/users/Admin@org1.das-pilot.com/msp
+      working_dir: /opt/gopath/src/github.com/das-pilot/das-go
+      command: sleep 100000
+      volumes:
+          - $GOPATH:/opt/gopath/
+      networks:
+        - byfn
