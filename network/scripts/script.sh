@@ -289,9 +289,9 @@ chainCodeCharge 2 "two" "one" "3.33"
 sleep 5
 chainCodeCharge 2 "two" "one" "3.33"
 sleep 5
-chaincodeQuery 2 "one" "two"
-chainCodeCharge 2 "two" "one" "3.33"
-sleep 5
+#chaincodeQuery 2 "one" "two"
+#chainCodeCharge 2 "two" "one" "3.33"
+#sleep 5
 chaincodeQuery 2 "one" "two"
 
 chaincodeQueryHistory 2 "one" "two"

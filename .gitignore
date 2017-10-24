@@ -23,6 +23,6 @@ network/chaincodes/java/wallet/.gradle/
 network/chaincodes/java/wallet/wallet.iml
 network/chaincodes/java/wallet/build/
 out/
-network/chaincodes/go/go.iml
+network/chaincodes/go/wallet.iml
 network/chaincodes/java/wallet/src/main/main.iml
 

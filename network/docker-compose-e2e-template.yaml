@@ -119,6 +119,8 @@ services:
   das-api:
       container_name: das-api
       image: hyperledger/fabric-tools
+      ports:
+        - "8000:8000"
       environment:
         - GOPATH=/opt/gopath
         - CORE_VM_ENDPOINT=unix:///host/var/run/docker.sock
