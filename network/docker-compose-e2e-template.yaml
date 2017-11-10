@@ -136,6 +136,6 @@ services:
       working_dir: /opt/gopath/src/github.com/das-pilot/das-go
       command: /bin/bash -c './start.sh'
       volumes:
-          - $GOPATH:/opt/gopath/
+          - THE_GOPATH:/opt/gopath/
       networks:
         - byfn
