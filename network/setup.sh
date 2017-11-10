@@ -310,6 +310,22 @@ function tagImages() {
   docker tag hyperledger/fabric-ca:x86_64-1.0.0 hyperledger/fabric-ca:latest
 }
 
+function getGoPackages() {
+  go get github.com/hyperledger/fabric-sdk-go
+  go get github.com/pkg/errors
+  go get github.com/spf13/cobra
+  go get github.com/spf13/viper
+  go get golang.org/x/crypto/ocsp
+  go get golang.org/x/net/context
+  go get google.golang.org/grpc
+  go get golang.org/x/sync/syncmap
+  go get github.com/cloudflare/cfssl
+  go get github.com/gin-gonic/gin
+  go get github.com/mitchellh/mapstructure
+  go get github.com/mitchellh/go-homedir
+  go get github.com/miekg/pkcs11
+}
+
 # Obtain the OS and Architecture string that will be used to select the correct
 # native binaries for your platform
 OS_ARCH=$(echo "$(uname -s|tr '[:upper:]' '[:lower:]'|sed 's/mingw64_nt.*/windows/')-$(uname -m | sed 's/x86_64/amd64/g')" | awk '{print tolower($0)}')
@@ -375,6 +391,8 @@ elif [ "${MODE}" == "restart" ]; then ## Restart the network
   networkUp
 elif [ "${MODE}" == "tag" ]; then ## tag images
   tagImages
+elif [ "${MODE}" == "gopkgs" ]; then
+  getGoPackages
 else
   printHelp
   exit 1
