@@ -27,7 +27,7 @@ type HistoryResponse struct {
 type ChargeRequest struct {
 	FromWallet  string
 	ToWallet  string
-	Amount  float32
+	Amount  float64
 }
 
 
