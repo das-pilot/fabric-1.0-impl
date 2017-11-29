@@ -185,7 +185,7 @@ func (t *SimpleChaincode) chargeMultiple(stub shim.ChaincodeStubInterface, args 
 	response := []ChargeRequest{}
 	json.Unmarshal([]byte(args[0]), &response)
 	for _, elem := range response {
-		chargeArgs := []string{elem.FromWallet, elem.ToWallet, elem.Amount}
+		chargeArgs := []string{elem.FromWallet, elem.ToWallet, strconv.FormatFloat(elem.Amount, 'f', 2, 64)}
 		t.charge(stub, chargeArgs)
 	}
 	return shim.Success(nil)
