@@ -7,15 +7,19 @@ Setup of sample hyperledger network, with channels and smart contracts and REST 
 3. GO
 
 #### Setup
-1. clone sources of fabric-1.0-impl & das-go into you $GOPATH so the folders should be $GOPATH/src/github.com/fabric-1.0-impl/ & $GOPATH/src/github.com/das-go
+1. clone sources of fabric-1.0-impl and das-go into you $GOPATH so the folders should be $GOPATH/src/github.com/das-pilot/fabric-1.0-impl/ and $GOPATH/src/github.com/das-pilot/das-go
 2. execute following:
 ```
-cd $GOPATH/src/github.com/fabric-1.0-impl/network
+cd $GOPATH/src/github.com/das-pilot/fabric-1.0-impl/network
+chmod +x ../../das-go/start.sh
+chmod +x *.sh */*.sh
 ./get-binaries.sh
 cd bin
 sudo ./get-docker-images.sh
 cd ../
 sudo docker pull hyperledger/fabric-ca:x86_64-1.0.0
 sudo ./setup.sh -m tag
-
+./setup.sh -m gopkgs
+./setup.sh -m generate
+sudo ./setup.sh -m up
 ```
