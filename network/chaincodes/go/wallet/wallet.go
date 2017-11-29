@@ -24,6 +24,13 @@ type HistoryResponse struct {
 	Time    string
 }
 
+type ChargeRequest struct {
+	FromWallet  string
+	ToWallet  string
+	Amount  float32
+}
+
+
 func ParseCreatorCertificate(stub shim.ChaincodeStubInterface) (string, error) {
 	creator, err := stub.GetCreator()
 	if err != nil {
@@ -78,6 +85,8 @@ func (t *SimpleChaincode) Invoke(stub shim.ChaincodeStubInterface) pb.Response {
 		return t.getBalance(stub, args)
 	} else if function == "queryHistory" {
 		return t.queryHistory(stub, args)
+	} else if function == "chargeMultiple" {
+		return t.chargeMultiple(stub, args)
 	}
 
 	return shim.Error("Invalid invoke function name. Expecting \"invoke\" \"delete\" \"query\"")
@@ -169,6 +178,16 @@ func (t *SimpleChaincode) charge(stub shim.ChaincodeStubInterface, args []string
 		return shim.Error(err.Error())
 	}
 
+	return shim.Success(nil)
+}
+
+func (t *SimpleChaincode) chargeMultiple(stub shim.ChaincodeStubInterface, args []string) pb.Response {
+	response := []ChargeRequest{}
+	json.Unmarshal(args[0], &response)
+	for _, elem := range response {
+		chargeArgs := []string{elem.FromWallet, elem.ToWallet, elem.Amount}
+		t.charge(stub, chargeArgs)
+	}
 	return shim.Success(nil)
 }
 
