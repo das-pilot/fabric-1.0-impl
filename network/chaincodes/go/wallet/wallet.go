@@ -183,7 +183,7 @@ func (t *SimpleChaincode) charge(stub shim.ChaincodeStubInterface, args []string
 
 func (t *SimpleChaincode) chargeMultiple(stub shim.ChaincodeStubInterface, args []string) pb.Response {
 	response := []ChargeRequest{}
-	json.Unmarshal(args[0], &response)
+	json.Unmarshal([]byte(args[0]), &response)
 	for _, elem := range response {
 		chargeArgs := []string{elem.FromWallet, elem.ToWallet, elem.Amount}
 		t.charge(stub, chargeArgs)
